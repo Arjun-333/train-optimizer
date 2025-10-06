@@ -1,32 +1,48 @@
 # constraints/constraints.py
+"""
+Constraint validation functions for train scheduling.
+Each function returns (bool, reason) for clarity and explainability.
+"""
 
 def check_fitness(train):
     """Check if train has exceeded its fitness threshold."""
-    return train["mileage"] < train["fitness_due_at"]
+    if train["mileage"] >= train["fitness_due_at"]:
+        return False, "Fitness overdue"
+    return True, "Fitness OK"
 
 def check_cleaning(train):
     """Check if train needs cleaning before scheduling."""
-    return not train.get("needs_cleaning", False)
+    if train.get("needs_cleaning", False):
+        return False, "Needs cleaning"
+    return True, "Cleaning OK"
 
 def check_job_card(train):
     """Check if job card is ready for this train."""
-    return train.get("job_card_ready", False)
+    if not train.get("job_card_ready", False):
+        return False, "Job card not ready"
+    return True, "Job card ready"
 
 def check_depot_capacity(depot, assigned_count):
     """Check if depot has available slots left."""
-    return assigned_count < depot["capacity"]
+    if assigned_count >= depot["capacity"]:
+        return False, "Depot full"
+    return True, "Depot has capacity"
 
 def validate_train_assignment(train, depot, assigned_count):
-    """Run all constraints and return (bool, reasons)."""
+    """
+    Run all constraints and return (bool, reasons).
+    Reasons is a list of strings explaining why assignment may fail.
+    """
     reasons = []
 
-    if not check_fitness(train):
-        reasons.append("fitness overdue")
-    if not check_cleaning(train):
-        reasons.append("needs cleaning")
-    if not check_job_card(train):
-        reasons.append("job card not ready")
-    if not check_depot_capacity(depot, assigned_count):
-        reasons.append("depot full")
+    for check in [check_fitness, check_cleaning, check_job_card]:
+        valid, reason = check(train)
+        if not valid:
+            reasons.append(reason)
+
+    # Depot capacity check
+    valid, reason = check_depot_capacity(depot, assigned_count)
+    if not valid:
+        reasons.append(reason)
 
     return (len(reasons) == 0, reasons)
